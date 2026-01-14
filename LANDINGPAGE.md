@@ -120,7 +120,9 @@ docker compose up --build
 
 **Read the docs:** [START_HERE.md](./START_HERE.md)
 
-**Questions?** Open an issue on GitHub or email [your-email@example.com]
+**Questions?** Open an issue on GitHub
+
+**[→ Request Early Access](https://github.com/Jreamr/ai-action-ledger/discussions/1)**
 
 ---
 
