@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Action Ledger</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --success: #22c55e;
+            --error: #ef4444;
+            --border: #475569;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);
+        }
+        header h1 { font-size: 1.75rem; font-weight: 600; }
+        header h1::before { content: "📋 "; }
+        .api-key-section { display: flex; gap: 0.5rem; align-items: center; }
+        .api-key-section input {
+            padding: 0.5rem 1rem; border: 1px solid var(--border); border-radius: 6px;
+            background: var(--bg-secondary); color: var(--text-primary); width: 250px; font-family: monospace;
+        }
+        .btn {
+            padding: 0.5rem 1rem; border: none; border-radius: 6px;
+            cursor: pointer; font-weight: 500; transition: all 0.2s;
+        }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); }
+        .btn-secondary:hover { background: var(--border); }
+        .filters {
+            display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; align-items: flex-end;
+        }
+        .filter-group { display: flex; flex-direction: column; gap: 0.25rem; }
+        .filter-group label {
+            font-size: 0.75rem; color: var(--text-secondary);
+            text-transform: uppercase; letter-spacing: 0.05em;
+        }
+        .filter-group input {
+            padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 6px;
+            background: var(--bg-secondary); color: var(--text-primary); min-width: 180px;
+        }
+        .actions { display: flex; gap: 0.5rem; margin-left: auto; }
+        .stats {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem; margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: var(--bg-secondary); border-radius: 8px;
+            padding: 1.25rem; border: 1px solid var(--border);
+        }
+        .stat-card h3 {
+            font-size: 0.75rem; color: var(--text-secondary);
+            text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;
+        }
+        .stat-card .value { font-size: 2rem; font-weight: 600; }
+        .stat-card.success .value { color: var(--success); }
+        .stat-card.error .value { color: var(--error); }
+        .events-table {
+            background: var(--bg-secondary); border-radius: 8px;
+            border: 1px solid var(--border); overflow: hidden;
+        }
+        .events-table table { width: 100%; border-collapse: collapse; }
+        .events-table th, .events-table td {
+            padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border);
+        }
+        .events-table th {
+            background: var(--bg-tertiary); font-size: 0.75rem;
+            text-transform: uppercase; letter-spacing: 0.05em;
+            color: var(--text-secondary); font-weight: 600;
+        }
+        .events-table tr:hover { background: var(--bg-tertiary); cursor: pointer; }
+        .hash { font-family: monospace; font-size: 0.8rem; color: var(--text-secondary); }
+        .badge {
+            display: inline-block; padding: 0.25rem 0.5rem;
+            border-radius: 4px; font-size: 0.75rem; font-weight: 500;
+        }
+        .badge-action { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+        .badge-env { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
+        .pagination {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 1rem; border-top: 1px solid var(--border);
+        }
+        .pagination-info { color: var(--text-secondary); font-size: 0.875rem; }
+        .pagination-controls { display: flex; gap: 0.5rem; }
+        .verify-banner { padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; display: none; }
+        .verify-banner.success {
+            background: rgba(34, 197, 94, 0.1); border: 1px solid var(--success);
+            color: var(--success); display: block;
+        }
+        .verify-banner.error {
+            background: rgba(239, 68, 68, 0.1); border: 1px solid var(--error);
+            color: var(--error); display: block;
+        }
+        .loading { text-align: center; padding: 3rem; color: var(--text-secondary); }
+        .empty-state { text-align: center; padding: 3rem; color: var(--text-secondary); }
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.7); display: flex;
+            align-items: center; justify-content: center; z-index: 1000;
+            opacity: 0; visibility: hidden; transition: all 0.2s;
+        }
+        .modal-overlay.active { opacity: 1; visibility: visible; }
+        .modal {
+            background: var(--bg-secondary); border-radius: 12px;
+            border: 1px solid var(--border); width: 90%; max-width: 700px;
+            max-height: 90vh; overflow-y: auto;
+        }
+        .modal-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 1.25rem; border-bottom: 1px solid var(--border);
+        }
+        .modal-header h2 { font-size: 1.25rem; }
+        .modal-close {
+            background: none; border: none; color: var(--text-secondary);
+            font-size: 1.5rem; cursor: pointer;
+        }
+        .modal-body { padding: 1.25rem; }
+        .event-detail-row {
+            display: grid; grid-template-columns: 140px 1fr; gap: 1rem;
+            padding: 0.75rem 0; border-bottom: 1px solid var(--border);
+        }
+        .event-detail-label {
+            font-size: 0.75rem; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--text-secondary);
+        }
+        .event-detail-value { word-break: break-all; }
+        .event-detail-value.hash {
+            background: var(--bg-tertiary); padding: 0.5rem; border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Action Ledger</h1>
+            <div class="api-key-section">
+                <input type="password" id="apiKey" placeholder="Enter API Key" value="dev-api-key-change-me">
+                <button class="btn btn-primary" onclick="loadEvents()">Connect</button>
+            </div>
+        </header>
+        <div id="verifyBanner" class="verify-banner"></div>
+        <div class="stats">
+            <div class="stat-card">
+                <h3>Total Events</h3>
+                <div class="value" id="totalEvents">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>Unique Agents</h3>
+                <div class="value" id="uniqueAgents">-</div>
+            </div>
+            <div class="stat-card" id="verifyCard">
+                <h3>Chain Status</h3>
+                <div class="value" id="chainStatus">-</div>
+            </div>
+        </div>
+        <div class="filters">
+            <div class="filter-group">
+                <label>Agent ID</label>
+                <input type="text" id="filterAgentId" placeholder="All agents">
+            </div>
+            <div class="filter-group">
+                <label>Action Type</label>
+                <input type="text" id="filterActionType" placeholder="All types">
+            </div>
+            <div class="filter-group">
+                <label>Start Time</label>
+                <input type="datetime-local" id="filterStartTime">
+            </div>
+            <div class="filter-group">
+                <label>End Time</label>
+                <input type="datetime-local" id="filterEndTime">
+            </div>
+            <div class="actions">
+                <button class="btn btn-secondary" onclick="clearFilters()">Clear</button>
+                <button class="btn btn-primary" onclick="loadEvents()">Apply</button>
+                <button class="btn btn-secondary" onclick="verifyChain()">Verify Chain</button>
+                <button class="btn btn-secondary" onclick="exportEvents('json')">Export JSON</button>
+                <button class="btn btn-secondary" onclick="exportEvents('csv')">Export CSV</button>
+            </div>
+        </div>
+        <div class="events-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Agent ID</th>
+                        <th>Action</th>
+                        <th>Tool</th>
+                        <th>Environment</th>
+                        <th>Event Hash</th>
+                    </tr>
+                </thead>
+                <tbody id="eventsBody">
+                    <tr><td colspan="6" class="loading">Loading events...</td></tr>
+                </tbody>
+            </table>
+            <div class="pagination">
+                <div class="pagination-info" id="paginationInfo">-</div>
+                <div class="pagination-controls">
+                    <button class="btn btn-secondary" id="prevBtn" onclick="prevPage()" disabled>Previous</button>
+                    <button class="btn btn-secondary" id="nextBtn" onclick="nextPage()" disabled>Next</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-overlay" id="eventModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Event Details</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="eventDetail"></div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const API_BASE = '/api';
+        let currentPage = 1;
+        const pageSize = 50;
+
+        function getApiKey() { return document.getElementById('apiKey').value; }
+
+        async function apiCall(endpoint, options = {}) {
+            const response = await fetch(`${API_BASE}${endpoint}`, {
+                ...options,
+                headers: { 'X-API-Key': getApiKey(), 'Content-Type': 'application/json', ...options.headers }
+            });
+            if (response.status === 401) { alert('Invalid API key'); throw new Error('Unauthorized'); }
+            if (!response.ok) { throw new Error(`API error: ${response.status}`); }
+            return response;
+        }
+
+        async function loadEvents() {
+            const tbody = document.getElementById('eventsBody');
+            tbody.innerHTML = '<tr><td colspan="6" class="loading">Loading...</td></tr>';
+            try {
+                const params = new URLSearchParams();
+                params.append('page', currentPage);
+                params.append('page_size', pageSize);
+                const agentId = document.getElementById('filterAgentId').value;
+                const actionType = document.getElementById('filterActionType').value;
+                const startTime = document.getElementById('filterStartTime').value;
+                const endTime = document.getElementById('filterEndTime').value;
+                if (agentId) params.append('agent_id', agentId);
+                if (actionType) params.append('action_type', actionType);
+                if (startTime) params.append('start_time', new Date(startTime).toISOString());
+                if (endTime) params.append('end_time', new Date(endTime).toISOString());
+                const response = await apiCall(`/events?${params}`);
+                const data = await response.json();
+                document.getElementById('totalEvents').textContent = data.total;
+                document.getElementById('uniqueAgents').textContent = new Set(data.events.map(e => e.agent_id)).size;
+                if (data.events.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No events found</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = data.events.map(e => `
+                    <tr onclick="showEventDetail('${e.event_id}')">
+                        <td>${new Date(e.timestamp).toLocaleString()}</td>
+                        <td>${e.agent_id}</td>
+                        <td><span class="badge badge-action">${e.action_type}</span></td>
+                        <td>${e.tool_name || '-'}</td>
+                        <td>${e.environment ? `<span class="badge badge-env">${e.environment}</span>` : '-'}</td>
+                        <td><span class="hash">${e.event_hash.substring(0, 16)}...</span></td>
+                    </tr>
+                `).join('');
+                const start = (data.page - 1) * data.page_size + 1;
+                const end = Math.min(data.page * data.page_size, data.total);
+                document.getElementById('paginationInfo').textContent = `Showing ${start}-${end} of ${data.total}`;
+                document.getElementById('prevBtn').disabled = data.page <= 1;
+                document.getElementById('nextBtn').disabled = end >= data.total;
+            } catch (error) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Failed to load. Check API key.</td></tr>';
+            }
+        }
+
+        function prevPage() { if (currentPage > 1) { currentPage--; loadEvents(); } }
+        function nextPage() { currentPage++; loadEvents(); }
+        function clearFilters() {
+            document.getElementById('filterAgentId').value = '';
+            document.getElementById('filterActionType').value = '';
+            document.getElementById('filterStartTime').value = '';
+            document.getElementById('filterEndTime').value = '';
+            currentPage = 1;
+            loadEvents();
+        }
+
+        async function showEventDetail(eventId) {
+            try {
+                const response = await apiCall(`/events/${eventId}`);
+                const e = await response.json();
+                document.getElementById('eventDetail').innerHTML = `
+                    <div class="event-detail-row"><div class="event-detail-label">Event ID</div><div class="event-detail-value hash">${e.event_id}</div></div>
+                    <div class="event-detail-row"><div class="event-detail-label">Agent ID</div><div class="event-detail-value">${e.agent_id}</div></div>
+                    <div class="event-detail-row"><div class="event-detail-label">Action Type</div><div class="event-detail-value">${e.action_type}</div></div>
+                    <div class="event-detail-row"><div class="event-detail-label">Tool Name</div><div class="event-detail-value">${e.tool_name || '-'}</div></div>
+                    <div class="event-detail-row"><div class="event-detail-label">Timestamp</div><div class="event-detail-value">${new Date(e.timestamp).toLocaleString()}</div></div>
+                    <div class="event-detail-row"><div class="event-detail-label">Environment</div><div class="event-detail-value">${e.environment || '-'}</div></div>
+                    <div class="event-detail-row"><div class="event-detail-label">Model Version</div><div class="event-detail-value">${e.model_version || '-'}</div></div>
+                    <div class="event-detail-row"><div class="event-detail-label">Prompt Version</div><div class="event-detail-value">${e.prompt_version || '-'}</div></div>
+                    <div class="event-detail-row"><div class="event-detail-label">Input Hash</div><div class="event-detail-value hash">${e.input_hash}</div></div>
+                    <div class="event-detail-row"><div class="event-detail-label">Output Hash</div><div class="event-detail-value hash">${e.output_hash}</div></div>
+                    <div class="event-detail-row"><div class="event-detail-label">Previous Hash</div><div class="event-detail-value hash">${e.previous_event_hash || '(Genesis)'}</div></div>
+                    <div class="event-detail-row"><div class="event-detail-label">Event Hash</div><div class="event-detail-value hash">${e.event_hash}</div></div>
+                `;
+                document.getElementById('eventModal').classList.add('active');
+            } catch (error) { alert('Failed to load event details'); }
+        }
+
+        function closeModal() { document.getElementById('eventModal').classList.remove('active'); }
+
+        async function verifyChain() {
+            const agentId = document.getElementById('filterAgentId').value;
+            if (!agentId) { alert('Enter an Agent ID to verify'); return; }
+            try {
+                const params = new URLSearchParams();
+                params.append('agent_id', agentId);
+                const startTime = document.getElementById('filterStartTime').value;
+                const endTime = document.getElementById('filterEndTime').value;
+                if (startTime) params.append('start_time', new Date(startTime).toISOString());
+                if (endTime) params.append('end_time', new Date(endTime).toISOString());
+                const response = await apiCall(`/verify?${params}`);
+                const result = await response.json();
+                const banner = document.getElementById('verifyBanner');
+                const statusValue = document.getElementById('chainStatus');
+                const statusCard = document.getElementById('verifyCard');
+                if (result.is_valid) {
+                    banner.className = 'verify-banner success';
+                    banner.textContent = `✓ Chain verified: ${result.events_checked} events for "${agentId}"`;
+                    statusValue.textContent = '✓ Valid';
+                    statusCard.className = 'stat-card success';
+                } else {
+                    banner.className = 'verify-banner error';
+                    banner.textContent = `✗ Chain broken: ${result.error_message}`;
+                    statusValue.textContent = '✗ Invalid';
+                    statusCard.className = 'stat-card error';
+                }
+            } catch (error) { alert('Verification failed'); }
+        }
+
+        async function exportEvents(format) {
+            try {
+                const params = new URLSearchParams();
+                params.append('format', format);
+                const agentId = document.getElementById('filterAgentId').value;
+                if (agentId) params.append('agent_id', agentId);
+                const response = await apiCall(`/export?${params}`);
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `events.${format}`;
+                a.click();
+                window.URL.revokeObjectURL(url);
+            } catch (error) { alert('Export failed'); }
+        }
+
+        document.getElementById('eventModal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+        document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
+        document.addEventListener('DOMContentLoaded', loadEvents);
+    </script>
+</body>
+</html>
