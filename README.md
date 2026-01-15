@@ -141,6 +141,10 @@ All endpoints except `/health` require `X-API-Key` header.
 
 ---
 
+## Client SDKs
+
+- **Python SDK:** [ai-action-ledger-sdk](https://github.com/Jreamr/ai-action-ledger-sdk)
+
 ## License
 
 MIT
